@@ -39,7 +39,7 @@
     <div class="login-box">
         <h2 style="color: var(--gov-blue); font-weight: 900;">EMSC-T</h2>
         <p class="fw-bold text-muted">لوحة مشرف العيادة</p>
-        <input type="password" id="adminCode" class="form-control code-input" placeholder="S***">
+        <input type="password" id="adminCode" class="form-control code-input" placeholder="أدخل رمز الدخول">
         <button class="btn btn-warning w-100 fw-bold fs-5" onclick="verifyAdmin()">تسجيل الدخول</button>
     </div>
 </div>
@@ -191,8 +191,8 @@
         })
         .then(res => res.json())
         .then(data => {
-            // البحث عن المشرف المطابق للرمز في قاعدة البيانات
-            const supervisor = data.find(item => item.code.toUpperCase() == code && item.type === 'مشرف');
+            // إضافة String() لضمان عمل الأرقام والنصوص بدون مشاكل
+            const supervisor = data.find(item => String(item.code).toUpperCase() == code && item.type === 'مشرف');
             
             if (supervisor) {
                 currentClinic = supervisor.name; 
