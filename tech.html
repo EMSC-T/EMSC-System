@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة الدعم الفني وإدارة النظام | EMSC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        :root { --gov-blue: #0A2540; --gov-gold: #C0A160; --gov-green: #2E7D32; --bg-light: #f4f6f9; }
+        body { background-color: var(--bg-light); font-family: 'Cairo', sans-serif; display: flex; flex-direction: column; min-height: 100vh; margin: 0; }
+        
+        /* شاشة تسجيل الدخول */
+        #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, var(--gov-blue) 0%, #1a436e 100%); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .login-box { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); width: 90%; max-width: 400px; text-align: center; }
+        .login-box h2 { color: var(--gov-blue); font-weight: 800; margin-bottom: 20px; }
+        
+        /* واجهة لوحة التحكم */
+        .navbar { background: var(--gov-blue); padding: 15px 20px; color: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .navbar h2 { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--gov-gold); }
+        .container-main { max-width: 1200px; margin: 30px auto; padding: 0 20px; flex: 1; display: none; }
+        
+        .card-custom { background: white; border-radius: 15px; padding: 25px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); border-top: 4px solid var(--gov-gold); }
+        .card-custom h3 { color: var(--gov-blue); font-weight: 700; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        .table-custom { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+        .table-custom th { background-color: var(--gov-blue); color: white; font-weight: 600; border: none; }
+        .table-custom td { vertical-align: middle; border-bottom: 1px solid #eee; }
+        .btn-gold { background-color: var(--gov-gold); color: white; border: none; font-weight: 600; transition: 0.3s; }
+        .btn-gold:hover { background-color: #a88a4b; color: white; }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة تسجيل الدخول للدعم الفني -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <i class="fa-solid fa-server fa-4x" style="color: var(--gov-gold); margin-bottom: 15px;"></i>
+            <h2>الدعم الفني للإدارة</h2>
+            <p class="text-muted mb-4">يرجى إدخال رمز الدخول الخاص بمدير النظام</p>
+            <input type="password" id="techCode" class="form-control form-control-lg mb-3 text-center" placeholder="الرمز السري للإدارة" dir="ltr">
+            <button class="btn btn-gold w-100 btn-lg" onclick="verifyTechLogin(this)">دخول للوحة التحكم <i class="fa-solid fa-unlock"></i></button>
+            <div id="loginError" class="text-danger mt-3" style="display: none; font-weight: 600;">الرمز غير صحيح، الوصول مرفوض!</div>
+        </div>
+    </div>
+
+    <!-- شريط التنقل -->
+    <div class="navbar" id="topNav" style="display: none;">
+        <h2><i class="fa-solid fa-gears"></i> غرفة التحكم المركزية | EMSC</h2>
+        <button class="btn btn-outline-light btn-sm" onclick="location.reload()"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="container-main" id="dashboard">
+        
+        <div class="row">
+            <!-- قسم إضافة عيادة جديدة -->
+            <div class="col-lg-4">
+                <div class="card-custom">
+                    <h3><i class="fa-solid fa-house-medical-circle-check"></i> إضافة عيادة جديدة</h3>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">اسم العيادة (الجهة)</label>
+                        <input type="text" id="newClinicName" class="form-control" placeholder="مثال: عيادة قرطبة">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">الرمز السري للطبيب</label>
+                        <input type="text" id="newDocCode" class="form-control" placeholder="مثال: 505">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">الرمز السري للمشرف</label>
+                        <input type="text" id="newSupCode" class="form-control" placeholder="مثال: S505">
+                    </div>
+                    <button class="btn btn-primary w-100 fw-bold" onclick="addNewClinic(this)"><i class="fa-solid fa-plus"></i> إنشاء وإضافة للنظام</button>
+                </div>
+            </div>
+
+            <!-- قسم إدارة المستخدمين والباسوردات -->
+            <div class="col-lg-8">
+                <div class="card-custom">
+                    <h3><i class="fa-solid fa-users-gear"></i> إدارة المستخدمين وصلاحيات الدخول</h3>
+                    <div class="table-responsive table-custom">
+                        <table class="table table-hover text-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th>نوع الحساب</th>
+                                    <th>الجهة التابع لها</th>
+                                    <th>الرمز السري الحالي</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="settingsTableBody">
+                                <tr><td colspan="4"><i class="fa-solid fa-spinner fa-spin"></i> جاري جلب البيانات من السحابة...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // الرابط مجهز ومبرمج مسبقاً!
+        const scriptURL = 'https://script.google.com/macros/s/AKfycbxYQlcH-OIt1N7Tpx44IrXb0wQllcNULIlLtNIQM8he8whfo1n1HilKHPQFLYfB5Zoe/exec'; 
+
+        // تسجيل الدخول للدعم الفني (الرمز الثابت هو TECH2026)
+        function verifyTechLogin(btn) {
+            const code = document.getElementById('techCode').value;
+            if(code === 'TECH2026') {
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('topNav').style.display = 'flex';
+                document.getElementById('dashboard').style.display = 'block';
+                fetchSettings();
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        // جلب الإعدادات (العيادات والباسوردات) من جوجل شيت
+        function fetchSettings() {
+            fetch(scriptURL, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: "getSettings" }) 
+            })
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('settingsTableBody');
+                tbody.innerHTML = '';
+                if(data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4">لا توجد بيانات حالياً</td></tr>';
+                    return;
+                }
+                data.forEach(item => {
+                    let typeBadge = '';
+                    if(item.type === 'عيادة') typeBadge = '<span class="badge bg-primary">طبيب عيادة</span>';
+                    else if(item.type === 'مشرف') typeBadge = '<span class="badge bg-warning text-dark">مشرف عيادة</span>';
+                    else if(item.type === 'مخازن') typeBadge = '<span class="badge bg-success">إدارة المخازن</span>';
+                    else typeBadge = `<span class="badge bg-secondary">${item.type}</span>`;
+
+                    let tr = `<tr>
+                        <td>${typeBadge}</td>
+                        <td class="fw-bold">${item.name}</td>
+                        <td class="text-danger fw-bold" style="letter-spacing: 2px;">${item.code}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" onclick="updatePassword(${item.rowNum}, '${item.name}', '${item.type}')">
+                                <i class="fa-solid fa-key"></i> تغيير الرمز
+                            </button>
+                        </td>
+                    </tr>`;
+                    tbody.innerHTML += tr;
+                });
+            }).catch(err => {
+                document.getElementById('settingsTableBody').innerHTML = '<tr><td colspan="4" class="text-danger">حدث خطأ في الاتصال بقاعدة البيانات</td></tr>';
+            });
+        }
+
+        // تغيير الرقم السري
+        function updatePassword(rowNum, name, type) {
+            let newCode = prompt(`أدخل الرمز السري الجديد لـ (${type} - ${name}):`);
+            if (newCode && newCode.trim() !== "") {
+                fetch(scriptURL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: "updatePassword", rowNum: rowNum, newCode: newCode.trim() })
+                }).then(res => res.json()).then(data => {
+                    if(data.status === "updated") {
+                        alert("تم تحديث الرمز السري بنجاح ✔️");
+                        fetchSettings(); // تحديث الجدول
+                    }
+                });
+            }
+        }
+
+        // إضافة عيادة جديدة
+        function addNewClinic(btn) {
+            let clinicName = document.getElementById('newClinicName').value.trim();
+            let docCode = document.getElementById('newDocCode').value.trim();
+            let supCode = document.getElementById('newSupCode').value.trim();
+
+            if(!clinicName || !docCode || !supCode) {
+                alert("يرجى تعبئة جميع الحقول!");
+                return;
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الإضافة...';
+            btn.disabled = true;
+
+            fetch(scriptURL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "addNewClinic", clinicName: clinicName, docCode: docCode, supCode: supCode })
+            }).then(res => res.json()).then(data => {
+                if(data.status === "added") {
+                    alert("تمت إضافة العيادة للنظام بنجاح! 🎉");
+                    document.getElementById('newClinicName').value = '';
+                    document.getElementById('newDocCode').value = '';
+                    document.getElementById('newSupCode').value = '';
+                    fetchSettings(); // تحديث الجدول لظهور العيادة الجديدة
+                }
+                btn.innerHTML = '<i class="fa-solid fa-plus"></i> إنشاء وإضافة للنظام';
+                btn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
