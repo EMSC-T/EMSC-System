@@ -175,17 +175,41 @@
     // الرابط الثابت
     const scriptURL = 'https://script.google.com/macros/s/AKfycbxYQlcH-OIt1N7Tpx44IrXb0wQllcNULIlLtNIQM8he8whfo1n1HilKHPQFLYfB5Zoe/exec';
     let currentClinic = "";
-    const adminCodes = { "S101": "عيادة الدبلوماسي مول", "S102": "منتزة سوق الثلاثاء", "S103": "ميناء طرابلس", "S104": "مطار معيتيقة", "S105": "مطار طرابلس الدولي", "S106": "برج طرابلس", "S107": "أبراج ذات العماد" };
 
     function verifyAdmin() {
-        let code = document.getElementById('adminCode').value.toUpperCase();
-        if (adminCodes[code]) { 
-            currentClinic = adminCodes[code]; 
-            document.getElementById('loginOverlay').style.display = 'none'; 
-            document.getElementById('dashboard').style.display = 'block'; 
-            document.getElementById('clinicNameDisplay').innerText = "مشرف لوحة: " + currentClinic; 
-            fetchRecords(); 
-        } else { alert("الرمز غير صحيح!"); }
+        const code = document.getElementById('adminCode').value.trim().toUpperCase();
+        const btn = document.querySelector('#loginOverlay .btn-warning');
+
+        if(!code) return;
+
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق...';
+        btn.disabled = true;
+
+        fetch(scriptURL, { 
+            method: 'POST', 
+            body: JSON.stringify({ action: "getSettings" }) 
+        })
+        .then(res => res.json())
+        .then(data => {
+            // البحث عن المشرف المطابق للرمز في قاعدة البيانات
+            const supervisor = data.find(item => item.code.toUpperCase() == code && item.type === 'مشرف');
+            
+            if (supervisor) {
+                currentClinic = supervisor.name; 
+                document.getElementById('loginOverlay').style.display = 'none'; 
+                document.getElementById('dashboard').style.display = 'block'; 
+                document.getElementById('clinicNameDisplay').innerText = "مشرف لوحة: " + currentClinic; 
+                fetchRecords(); 
+            } else { 
+                alert("عفواً، الرمز غير صحيح أو تم تغييره!"); 
+                btn.innerHTML = 'تسجيل الدخول';
+                btn.disabled = false;
+            }
+        }).catch(err => {
+            alert("حدث خطأ في الاتصال بقاعدة البيانات!");
+            btn.innerHTML = 'تسجيل الدخول';
+            btn.disabled = false;
+        });
     }
 
     // 1. السجل الطبي (برمجة آمنة لتخطي البيانات الفارغة)
