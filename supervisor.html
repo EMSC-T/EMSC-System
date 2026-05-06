@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMSC-T | لوحة المشرفين</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        :root { --gov-blue: #0A2540; --gov-gold: #C0A160; --bg-light: #f4f6f9; }
+        body { background-color: var(--bg-light); font-family: 'Cairo', sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+        .official-header { background: linear-gradient(90deg, var(--gov-blue) 0%, #1a436e 100%); color: white; padding: 15px 30px; border-bottom: 5px solid var(--gov-gold); display: flex; justify-content: space-between; align-items: center; }
+        .pro-card { background: white; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 25px; border-top: 4px solid var(--gov-blue); }
+        .table th { background-color: var(--gov-blue); color: white; text-align: center; }
+        .table td { vertical-align: middle; text-align: center; }
+        
+        #loginOverlay { position: fixed; inset: 0; background: var(--gov-blue); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: white; padding: 40px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; }
+        .code-input { font-size: 2rem; text-align: center; letter-spacing: 10px; border: 2px solid #ccc; margin: 20px 0; font-weight: bold; }
+        
+        /* الإصلاح الجذري لمشكلة الطباعة */
+        #printArea { display: none; } /* إخفاء النموذج في الوضع العادي */
+        
+        @media print { 
+            body * { visibility: hidden !important; } 
+            #printArea, #printArea * { visibility: visible !important; } 
+            #printArea { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background: white; } 
+            .no-print { display: none !important; } 
+        }
+
+        .footer { text-align: center; padding: 20px; font-weight: 700; color: #666; font-size: 0.95rem; margin-top: auto; border-top: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+<!-- شاشة الدخول -->
+<div id="loginOverlay">
+    <div class="login-box">
+        <h2 style="color: var(--gov-blue); font-weight: 900;">EMSC-T</h2>
+        <p class="fw-bold text-muted">لوحة مشرف العيادة</p>
+        <input type="password" id="adminCode" class="form-control code-input" placeholder="S***">
+        <button class="btn btn-warning w-100 fw-bold fs-5" onclick="verifyAdmin()">تسجيل الدخول</button>
+    </div>
+</div>
+
+<!-- لوحة التحكم -->
+<div id="dashboard" style="display:none;" class="no-print">
+    <header class="official-header">
+        <div>
+            <h3 style="margin:0; font-weight: 900;"><i class="fa-solid fa-building-shield"></i> النظام الإداري</h3>
+            <small id="clinicNameDisplay" class="fw-bold text-warning"></small>
+        </div>
+        <button class="btn btn-danger btn-sm fw-bold" onclick="window.location.reload()"><i class="fa-solid fa-power-off"></i> خروج</button>
+    </header>
+
+    <div class="container-fluid mt-4">
+        <ul class="nav nav-pills mb-4" role="tablist">
+            <li class="nav-item"><button class="nav-link active fw-bold me-2" data-bs-toggle="pill" data-bs-target="#patients-tab" onclick="fetchRecords()">السجل الطبي</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold me-2" data-bs-toggle="pill" data-bs-target="#inventory-tab" onclick="fetchInventory()">المخزون الحالي</button></li>
+            <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="pill" data-bs-target="#orders-tab" onclick="fetchOrders()">الطلبيات المركزية</button></li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- 1. السجل الطبي -->
+            <div class="tab-pane fade show active" id="patients-tab">
+                <div class="pro-card">
+                    <div class="d-flex justify-content-between mb-3">
+                        <h5 class="fw-bold text-primary"><i class="fa-solid fa-notes-medical"></i> سجل الحالات المنجزة</h5>
+                        <button class="btn btn-primary fw-bold" onclick="fetchRecords()">🔄 تحديث السجل</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead><tr><th>التاريخ</th><th>الاسم</th><th>التشخيص</th><th>الخدمات والصرف</th><th>إجراءات</th></tr></thead>
+                            <tbody id="recordsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. المخزون الحالي -->
+            <div class="tab-pane fade" id="inventory-tab">
+                <div class="pro-card">
+                    <div class="d-flex justify-content-between mb-3">
+                        <h5 class="fw-bold text-success"><i class="fa-solid fa-warehouse"></i> العهدة الحالية للعيادة</h5>
+                        <button class="btn btn-success fw-bold" onclick="fetchInventory()">🔄 تحديث المخزون</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead><tr><th>اسم الصنف</th><th>الكمية المتوفرة</th><th>الوحدة</th><th>تعديل الرصيد يدوياً</th></tr></thead>
+                            <tbody id="inventoryTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 3. الطلبيات -->
+            <div class="tab-pane fade" id="orders-tab">
+                <div class="pro-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-danger"><i class="fa-solid fa-file-signature"></i> سجل الطلبيات</h5>
+                        <button class="btn btn-danger fw-bold" data-bs-toggle="modal" data-bs-target="#newOrderModal"><i class="fa-solid fa-plus"></i> إنشاء طلب جديد</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead><tr><th>رقم الطلب</th><th>التاريخ</th><th>الأصناف المطلوبة</th><th>الحالة</th><th>طباعة</th></tr></thead>
+                            <tbody id="ordersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="footer no-print">
+    تم الإعداد والتطوير من قبل الدعم الفني - مكتب طرابلس © 2026<br>
+    <small>مركز طب الطوارئ والدعم</small>
+</footer>
+
+<!-- منطقة الطباعة -->
+<div id="printArea">
+    <div style="text-align: center; border-bottom: 3px solid black; padding-bottom: 10px; margin-bottom: 20px;">
+        <h2>مركز طب الطوارئ والدعم</h2>
+        <h3>مكتب طرابلس - إدارة المخازن الطبية</h3>
+        <h4 style="text-decoration: underline;">إذن طلب مواد</h4>
+    </div>
+    <div style="margin-bottom: 20px; font-size: 1.2rem;">
+        <p><strong>العيادة:</strong> <span id="printClinic"></span></p>
+        <p><strong>التاريخ:</strong> <span id="printDate"></span></p>
+        <p><strong>المرجع:</strong> <span id="printRef"></span></p>
+    </div>
+    <table border="1" width="100%" cellpadding="10" style="border-collapse: collapse; text-align: center; font-size: 1.2rem; margin-bottom: 40px;">
+        <tr style="background-color: #eee;"><th>الصنف</th><th>الكمية المطلوبة</th><th>ملاحظات</th></tr>
+        <tbody id="printDetailsTbody"></tbody>
+    </table>
+    <div style="display: flex; justify-content: space-between; margin-top: 50px; font-weight: bold;">
+        <div style="text-align: center;">مشرف العيادة<br>..........................</div>
+        <div style="text-align: center;">إدارة المخازن<br>..........................</div>
+    </div>
+</div>
+
+<!-- المودالز (النوافذ المنبثقة) -->
+<!-- 1. تعديل مريض -->
+<div class="modal fade" id="editRecordModal">
+  <div class="modal-dialog"><div class="modal-content">
+      <div class="modal-header bg-warning"><h5 class="modal-title fw-bold">تعديل سجل مريض</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="editRowNum">
+        <label class="fw-bold mt-2">الاسم:</label><input type="text" id="editName" class="form-control">
+        <label class="fw-bold mt-2">التشخيص:</label><input type="text" id="editDiag" class="form-control">
+        <label class="fw-bold mt-2">توصيات:</label><input type="text" id="editRec" class="form-control mb-3">
+        <button class="btn btn-primary w-100 fw-bold" onclick="saveEdit()">حفظ التعديلات</button>
+      </div>
+  </div></div>
+</div>
+
+<!-- 2. طلب جديد -->
+<div class="modal fade" id="newOrderModal">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+      <div class="modal-header bg-success text-white"><h5 class="modal-title fw-bold">جدول طلب النواقص</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <table class="table table-bordered" id="dynamicOrderTable">
+            <thead><tr><th>اسم الصنف</th><th>الكمية المطلوبة</th><th>ملاحظة (اختياري)</th><th>حذف</th></tr></thead>
+            <tbody><tr><td><input type="text" class="form-control item-name" required></td><td><input type="number" class="form-control item-qty" required></td><td><input type="text" class="form-control item-note"></td><td></td></tr></tbody>
+        </table>
+        <button class="btn btn-outline-primary fw-bold mb-3 w-100" onclick="addTableRow()"><i class="fa-solid fa-plus"></i> إضافة صنف للجدول</button>
+        <button class="btn btn-success w-100 fw-bold fs-5" onclick="submitDynamicOrder()">إرسال للإدارة المركزية</button>
+      </div>
+  </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // الرابط الثابت
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxYQlcH-OIt1N7Tpx44IrXb0wQllcNULIlLtNIQM8he8whfo1n1HilKHPQFLYfB5Zoe/exec';
+    let currentClinic = "";
+    const adminCodes = { "S101": "عيادة الدبلوماسي مول", "S102": "منتزة سوق الثلاثاء", "S103": "ميناء طرابلس", "S104": "مطار معيتيقة", "S105": "مطار طرابلس الدولي", "S106": "برج طرابلس", "S107": "أبراج ذات العماد" };
+
+    function verifyAdmin() {
+        let code = document.getElementById('adminCode').value.toUpperCase();
+        if (adminCodes[code]) { 
+            currentClinic = adminCodes[code]; 
+            document.getElementById('loginOverlay').style.display = 'none'; 
+            document.getElementById('dashboard').style.display = 'block'; 
+            document.getElementById('clinicNameDisplay').innerText = "مشرف لوحة: " + currentClinic; 
+            fetchRecords(); 
+        } else { alert("الرمز غير صحيح!"); }
+    }
+
+    // 1. السجل الطبي (برمجة آمنة لتخطي البيانات الفارغة)
+    function fetchRecords() {
+        const tbody = document.getElementById('recordsTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center fw-bold">جاري الجلب...</td></tr>';
+        fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "getRecords", Clinic: currentClinic }) })
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if(!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger fw-bold">لا توجد حالات مسجلة</td></tr>';
+            
+            data.reverse().forEach(row => {
+                let dateStr = row.date ? new Date(row.date).toLocaleString('ar-LY', {hour12: true}) : 'غير محدد';
+                let safeName = row.name || 'بدون اسم';
+                let safeDiag = row.diagnosis || '-';
+                let safeServices = row.services || '-';
+                let safeRec = row.recommendations || '';
+
+                tbody.innerHTML += `<tr>
+                    <td dir="ltr" class="small text-muted fw-bold">${dateStr}</td>
+                    <td class="fw-bold text-primary">${safeName}</td>
+                    <td>${safeDiag}</td>
+                    <td class="small" style="color:#0056b3;">${safeServices}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm fw-bold me-1" onclick="openEditModal(${row.rowNum}, '${safeName}', '${safeDiag}', '${safeRec}')"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn btn-danger btn-sm fw-bold" onclick="deleteRecord(${row.rowNum})"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            });
+        }).catch(() => { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger fw-bold">خطأ في جلب البيانات!</td></tr>'; });
+    }
+
+    function openEditModal(r, n, d, rec) {
+        document.getElementById('editRowNum').value = r; 
+        document.getElementById('editName').value = n; 
+        document.getElementById('editDiag').value = d; 
+        document.getElementById('editRec').value = rec;
+        new bootstrap.Modal(document.getElementById('editRecordModal')).show();
+    }
+    
+    function saveEdit() {
+        let data = { action: "editRecord", Clinic: currentClinic, rowNum: document.getElementById('editRowNum').value, PatientName: document.getElementById('editName').value, Diagnosis: document.getElementById('editDiag').value, Recommendations: document.getElementById('editRec').value };
+        fetch(scriptURL, { method: 'POST', body: JSON.stringify(data) }).then(() => { bootstrap.Modal.getInstance(document.getElementById('editRecordModal')).hide(); fetchRecords(); });
+    }
+
+    function deleteRecord(r) { 
+        if(confirm("تأكيد الحذف النهائي؟")) {
+            fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "deleteRecord", Clinic: currentClinic, rowNum: r }) })
+            .then(() => fetchRecords()); 
+        }
+    }
+
+    // 2. المخزون (برمجة آمنة)
+    function fetchInventory() {
+        const tbody = document.getElementById('inventoryTableBody');
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center fw-bold">جاري الجلب...</td></tr>';
+        fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "getInventory", Clinic: currentClinic }) })
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if(!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger fw-bold">المخزون فارغ</td></tr>';
+            
+            data.forEach(item => {
+                let safeName = item.name || 'غير معروف';
+                let safeQty = item.quantity || '0';
+                let safeUnit = item.unit || '-';
+                tbody.innerHTML += `<tr>
+                    <td class="fw-bold">${safeName}</td>
+                    <td class="fw-bold fs-5 text-success" id="qty-${item.rowNum}">${safeQty}</td>
+                    <td>${safeUnit}</td>
+                    <td><button class="btn btn-sm btn-outline-success fw-bold" onclick="editInv(${item.rowNum}, '${safeName}', ${safeQty})">تعديل الرقم (جرد)</button></td>
+                </tr>`;
+            });
+        }).catch(() => { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger fw-bold">خطأ في جلب المخزون!</td></tr>'; });
+    }
+
+    function editInv(rowNum, name, oldQty) {
+        let newQty = prompt(`تعديل رصيد: ${name}\nأدخل الرصيد الصحيح الموجود بالعيادة:`, oldQty);
+        if(newQty !== null && !isNaN(newQty)) {
+            document.getElementById('qty-'+rowNum).innerText = "...";
+            fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "editInventory", Clinic: currentClinic, rowNum: rowNum, newQty: newQty }) }).then(() => fetchInventory());
+        }
+    }
+
+    // 3. نظام الطلبيات
+    function addTableRow() {
+        const tbody = document.querySelector('#dynamicOrderTable tbody');
+        tbody.insertAdjacentHTML('beforeend', `<tr><td><input type="text" class="form-control item-name" required></td><td><input type="number" class="form-control item-qty" required></td><td><input type="text" class="form-control item-note"></td><td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td></tr>`);
+    }
+
+    function submitDynamicOrder() {
+        let rows = document.querySelectorAll('#dynamicOrderTable tbody tr');
+        let orderData = [];
+        rows.forEach(row => {
+            let name = row.querySelector('.item-name').value;
+            let qty = row.querySelector('.item-qty').value;
+            let note = row.querySelector('.item-note').value;
+            if(name && qty) orderData.push({ item: name, qty: qty, note: note });
+        });
+        
+        if(orderData.length === 0) return alert("الرجاء إدخال صنف واحد على الأقل.");
+        
+        let btn = event.target; btn.disabled = true; btn.innerText = "جاري الرفع...";
+        fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "submitOrder", Clinic: currentClinic, OrderDetails: JSON.stringify(orderData), Notes: "" }) })
+        .then(() => {
+            alert("تم رفع الطلب للإدارة بنجاح!");
+            bootstrap.Modal.getInstance(document.getElementById('newOrderModal')).hide();
+            document.querySelector('#dynamicOrderTable tbody').innerHTML = `<tr><td><input type="text" class="form-control item-name"></td><td><input type="number" class="form-control item-qty"></td><td><input type="text" class="form-control item-note"></td><td></td></tr>`;
+            btn.disabled = false; btn.innerText = "إرسال للإدارة المركزية";
+            fetchOrders();
+        });
+    }
+
+    function fetchOrders() {
+        const tbody = document.getElementById('ordersTableBody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center fw-bold">جاري الجلب...</td></tr>';
+        fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "getOrders", Clinic: currentClinic }) })
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if(!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted fw-bold">لا توجد طلبيات مرفوعة</td></tr>';
+            
+            data.reverse().forEach(row => {
+                let dateStr = row.date ? new Date(row.date).toLocaleDateString('ar-LY') : '-';
+                let detailsHtml = "";
+                try {
+                    let items = JSON.parse(row.details);
+                    items.forEach(i => detailsHtml += `<div class="mb-1">🔸 ${i.item} <span class="badge bg-secondary ms-2">${i.qty}</span></div>`);
+                } catch(e) { detailsHtml = row.details; }
+
+                tbody.innerHTML += `<tr>
+                    <td class="fw-bold text-danger align-middle">${row.id}</td>
+                    <td class="align-middle">${dateStr}</td>
+                    <td>${detailsHtml}</td>
+                    <td class="align-middle"><span class="badge ${row.status.includes('موافق') ? 'bg-success' : row.status.includes('مرفوض') ? 'bg-danger' : 'bg-warning text-dark'} fs-6">${row.status}</span></td>
+                    <td class="align-middle"><button class="btn btn-secondary btn-sm fw-bold" onclick="printOrder('${row.id}', '${dateStr}', '${encodeURIComponent(row.details)}')"><i class="fa-solid fa-print"></i> طباعة</button></td>
+                </tr>`;
+            });
+        }).catch(() => { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger fw-bold">خطأ في جلب الطلبيات!</td></tr>'; });
+    }
+
+    function printOrder(id, date, detailsEncoded) {
+        document.getElementById('printClinic').innerText = currentClinic;
+        document.getElementById('printDate').innerText = date;
+        document.getElementById('printRef').innerText = id;
+        
+        let printTbody = document.getElementById('printDetailsTbody');
+        printTbody.innerHTML = '';
+        try {
+            let items = JSON.parse(decodeURIComponent(detailsEncoded));
+            items.forEach(i => printTbody.innerHTML += `<tr><td>${i.item}</td><td>${i.qty}</td><td>${i.note || '-'}</td></tr>`);
+        } catch(e) { printTbody.innerHTML = `<tr><td colspan="3">${decodeURIComponent(detailsEncoded)}</td></tr>`; }
+        window.print();
+    }
+</script>
+</body>
+</html>

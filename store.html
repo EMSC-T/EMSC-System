@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMSC-T | إدارة الإمداد والمخازن</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+    <style>
+        :root { --store-color: #2E7D32; --bg-light: #f4f6f9; }
+        body { background-color: var(--bg-light); font-family: 'Cairo', sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+        
+        .official-header { background: linear-gradient(90deg, var(--store-color) 0%, #1b5e20 100%); color: white; padding: 20px 30px; border-bottom: 5px solid #ffca28; }
+        .order-card { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; border-right: 6px solid #ccc; transition: 0.3s; }
+        .order-card:hover { box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .order-card.pending { border-right-color: #f57c00; }
+        .order-card.approved { border-right-color: #388e3c; opacity: 0.85; }
+        .order-card.rejected { border-right-color: #d32f2f; opacity: 0.75; }
+        
+        .search-box { border: 2px solid var(--store-color); border-radius: 30px; padding: 10px 20px; outline: none; width: 100%; max-width: 500px; font-weight: bold; font-size: 1.1rem; transition: 0.3s; }
+        .search-box:focus { box-shadow: 0 0 10px rgba(46, 125, 50, 0.3); }
+
+        #loginOverlay { position: fixed; inset: 0; background: var(--store-color); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: white; padding: 40px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; }
+        .code-input { font-size: 2rem; text-align: center; letter-spacing: 5px; border: 2px solid #ccc; margin: 20px 0; font-weight: bold; }
+        
+        .footer { text-align: center; padding: 20px; font-weight: 700; color: #666; font-size: 0.95rem; margin-top: auto; border-top: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+<!-- شاشة الدخول -->
+<div id="loginOverlay">
+    <div class="login-box">
+        <h2 style="color: var(--store-color); font-weight: 900;"><i class="fa-solid fa-warehouse"></i> EMSC-T</h2>
+        <p class="fw-bold">إدارة المخازن المركزية</p>
+        <input type="password" id="storeCode" class="form-control code-input" placeholder="الرمز">
+        <button class="btn btn-success w-100 fw-bold fs-5" onclick="verifyStore()">دخول الإدارة</button>
+    </div>
+</div>
+
+<!-- اللوحة الرئيسية -->
+<div id="dashboard" style="display:none;">
+    <header class="official-header d-flex justify-content-between align-items-center">
+        <div>
+            <h3 style="margin:0; font-weight: 900;"><i class="fa-solid fa-boxes-stacked"></i> إدارة الإمداد والمخازن</h3>
+            <small style="color: #ffca28; font-weight: bold;">بوابة مراجعة واعتماد الطلبيات</small>
+        </div>
+        <button class="btn btn-danger btn-sm fw-bold" onclick="window.location.reload()"><i class="fa-solid fa-power-off"></i> خروج</button>
+    </header>
+
+    <div class="container mt-4">
+        <!-- شريط البحث الفوري وأزرار التحديث -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm border">
+            <input type="text" id="searchOrderInput" class="search-box mb-3 mb-md-0" placeholder="🔍 ابحث برقم الطلبية (مثال: REQ-...) أو اسم العيادة" onkeyup="searchOrders()">
+            <button class="btn btn-warning fw-bold fs-5 px-4" onclick="fetchAllOrders()"><i class="fa-solid fa-rotate-right"></i> تحديث جلب الطلبيات</button>
+        </div>
+
+        <!-- حاوية الطلبيات -->
+        <div id="ordersContainer"></div>
+    </div>
+</div>
+
+<!-- Modal التعديل على الطلبية من قبل الإدارة -->
+<div class="modal fade" id="editOrderModal">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+      <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold"><i class="fa-solid fa-pen-to-square"></i> تعديل كميات الطلبية قبل الاعتماد</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="alert alert-info fw-bold">يمكنك تعديل الكميات حسب المتوفر الفعلي في المخزن المركزي قبل الموافقة على الصرف.</div>
+        <input type="hidden" id="editOrderRow">
+        <table class="table table-bordered" id="editOrderTable">
+            <thead><tr><th>اسم الصنف</th><th>الكمية (للتعديل)</th><th>ملاحظة الإدارة</th><th>حذف الصنف</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        <button class="btn btn-primary w-100 fw-bold fs-5" onclick="saveEditedOrder()"><i class="fa-solid fa-floppy-disk"></i> حفظ التعديلات واعتماد التغيير</button>
+      </div>
+  </div></div>
+</div>
+
+<footer class="footer">
+    تم الإعداد والتطوير من قبل الدعم الفني - مكتب طرابلس © 2026<br>
+    <small>مركز طب الطوارئ والدعم - إدارة الإمداد</small>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // الرابط الثابت الخاص بمشروعك
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxYQlcH-OIt1N7Tpx44IrXb0wQllcNULIlLtNIQM8he8whfo1n1HilKHPQFLYfB5Zoe/exec';
+
+    function verifyStore() {
+        if (document.getElementById('storeCode').value === "STORE2026") {
+            document.getElementById('loginOverlay').style.display = 'none'; 
+            document.getElementById('dashboard').style.display = 'block'; 
+            fetchAllOrders(); 
+        } else { alert("رمز الدخول للإدارة غير صحيح!"); }
+    }
+
+    // ميزة البحث الذكي الفوري حسب رقم الطلبية أو العيادة
+    function searchOrders() {
+        let input = document.getElementById('searchOrderInput').value.toLowerCase();
+        let orderCards = document.querySelectorAll('.order-card');
+        
+        orderCards.forEach(card => {
+            // البحث داخل النص الكامل للبطاقة (يشمل رقم الطلب واسم العيادة)
+            if(card.innerText.toLowerCase().includes(input)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // جلب كل الطلبيات من الإكسل
+    function fetchAllOrders() {
+        const container = document.getElementById('ordersContainer');
+        container.innerHTML = '<div class="text-center fw-bold fs-4 mt-5"><i class="fa-solid fa-spinner fa-spin" style="color:var(--store-color);"></i> جاري جلب طلبيات العيادات...</div>';
+        
+        fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "getAllOrders" }) })
+        .then(res => res.json())
+        .then(data => {
+            container.innerHTML = '';
+            // مسح حقل البحث عند التحديث
+            document.getElementById('searchOrderInput').value = '';
+            
+            if(!data || data.length === 0) return container.innerHTML = '<div class="text-center text-muted fw-bold mt-5 fs-4">لا توجد طلبيات مرفوعة في النظام حالياً.</div>';
+            
+            // الترتيب: الطلبيات "قيد المراجعة" تظهر في الأعلى دائماً
+            data.sort((a,b) => { 
+                if(a.status.includes("قيد") && !b.status.includes("قيد")) return -1; 
+                if(!a.status.includes("قيد") && b.status.includes("قيد")) return 1; 
+                return b.rowNum - a.rowNum; 
+            });
+
+            data.forEach(order => {
+                let statusClass = order.status.includes("موافق") ? 'approved' : order.status.includes("مرفوض") ? 'rejected' : 'pending';
+                
+                // تحويل الأصناف (JSON) إلى جدول منسق
+                let tableHtml = `<table class="table table-sm table-bordered mt-3 text-center">
+                                    <thead class="table-light"><tr><th>الصنف المطلوب</th><th>الكمية</th><th>ملاحظات</th></tr></thead><tbody>`;
+                try {
+                    let items = JSON.parse(order.details);
+                    items.forEach(i => tableHtml += `<tr><td class="fw-bold">${i.item}</td><td><span class="badge bg-primary fs-6">${i.qty}</span></td><td>${i.note || '-'}</td></tr>`);
+                } catch(e) { tableHtml += `<tr><td colspan="3">${order.details}</td></tr>`; }
+                tableHtml += `</tbody></table>`;
+
+                // أزرار التحكم تظهر فقط للطلبيات "قيد المراجعة"
+                let actionBtns = "";
+                if(statusClass === 'pending') {
+                    actionBtns = `
+                        <div class="mt-3 text-end border-top pt-3">
+                            <button class="btn btn-success fw-bold me-2" onclick="changeStatus(${order.rowNum}, 'موافق عليها وتم الصرف ✅')"><i class="fa-solid fa-check-double"></i> اعتماد وصرف الطلبية</button>
+                            <button class="btn btn-primary fw-bold me-2" onclick="openEditModal(${order.rowNum}, '${encodeURIComponent(order.details)}')"><i class="fa-solid fa-pen-to-square"></i> تعديل الكميات</button>
+                            <button class="btn btn-warning fw-bold me-2 text-dark" onclick="changeStatus(${order.rowNum}, 'مرفوضة / معادة للتعديل ❌')"><i class="fa-solid fa-ban"></i> رفض أو إعادة</button>
+                            <button class="btn btn-danger fw-bold" onclick="deleteOrder(${order.rowNum})"><i class="fa-solid fa-trash"></i> حذف نهائي</button>
+                        </div>
+                    `;
+                }
+
+                let dateStr = order.date ? new Date(order.date).toLocaleString('ar-LY') : 'تاريخ غير معروف';
+
+                container.innerHTML += `
+                <div class="order-card ${statusClass}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="fw-bold m-0" style="color:var(--store-color);"><i class="fa-solid fa-hospital"></i> ${order.clinic}</h4>
+                            <span class="badge bg-danger fs-6 mt-2"><i class="fa-solid fa-hashtag"></i> ${order.id}</span>
+                            <small class="text-muted ms-2 fw-bold" dir="ltr">${dateStr}</small>
+                        </div>
+                        <span class="badge bg-dark fs-5 p-2">${order.status}</span>
+                    </div>
+                    ${tableHtml}
+                    ${actionBtns}
+                </div>`;
+            });
+        }).catch(() => { container.innerHTML = '<div class="text-center text-danger fw-bold mt-5 fs-4">خطأ في الاتصال بقاعدة البيانات!</div>'; });
+    }
+
+    // تغيير حالة الطلبية
+    function changeStatus(rowNum, newStatus) {
+        if(confirm(`تأكيد تغيير حالة الطلب إلى:\n${newStatus}`)) {
+            fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "storeUpdateOrderStatus", rowNum: rowNum, newStatus: newStatus }) })
+            .then(() => fetchAllOrders());
+        }
+    }
+
+    // حذف الطلبية
+    function deleteOrder(rowNum) {
+        if(confirm("تحذير أمني: هل أنت متأكد من حذف هذه الطلبية نهائياً من السجلات؟")) {
+            fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "storeDeleteOrder", rowNum: rowNum }) })
+            .then(() => fetchAllOrders());
+        }
+    }
+
+    // نافذة التعديل 
+    function openEditModal(rowNum, detailsEncoded) {
+        document.getElementById('editOrderRow').value = rowNum;
+        let tbody = document.querySelector('#editOrderTable tbody'); 
+        tbody.innerHTML = '';
+        try {
+            let items = JSON.parse(decodeURIComponent(detailsEncoded));
+            items.forEach(i => {
+                tbody.innerHTML += `<tr>
+                    <td><input type="text" class="form-control e-item fw-bold" value="${i.item}"></td>
+                    <td><input type="number" class="form-control e-qty text-primary fw-bold" value="${i.qty}"></td>
+                    <td><input type="text" class="form-control e-note" value="${i.note || ''}" placeholder="ملاحظة الإدارة"></td>
+                    <td><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>`;
+            });
+        } catch(e) {}
+        new bootstrap.Modal(document.getElementById('editOrderModal')).show();
+    }
+
+    // حفظ التعديلات التي أجرتها المخازن
+    function saveEditedOrder() {
+        let rows = document.querySelectorAll('#editOrderTable tbody tr');
+        let orderData = [];
+        rows.forEach(row => {
+            let n = row.querySelector('.e-item').value; 
+            let q = row.querySelector('.e-qty').value; 
+            let no = row.querySelector('.e-note').value;
+            if(n && q) orderData.push({ item: n, qty: q, note: no });
+        });
+        
+        fetch(scriptURL, { method: 'POST', body: JSON.stringify({ action: "storeEditOrderDetails", rowNum: document.getElementById('editOrderRow').value, newDetails: JSON.stringify(orderData) }) })
+        .then(() => {
+            alert("تم حفظ التعديلات بنجاح!");
+            bootstrap.Modal.getInstance(document.getElementById('editOrderModal')).hide();
+            fetchAllOrders();
+        });
+    }
+</script>
+</body>
+</html>
