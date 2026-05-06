@@ -64,9 +64,9 @@
         <h1 style="color: var(--gov-blue); font-weight: 900; margin-bottom: 0;">EMSC-T</h1>
         <p style="color: #666; font-weight: 600; margin-bottom: 30px;">مركز طب الطوارئ والدعم - مكتب طرابلس</p>
         <label class="form-label text-start w-100">رمز الدخول للعيادة:</label>
-        <input type="password" id="clinicCode" class="form-control code-input" placeholder="***" maxlength="3">
+        <input type="password" id="clinicCode" class="form-control code-input" placeholder="***">
         <button class="btn-official" onclick="verifyCode()" style="margin-top: 10px;">تسجيل الدخول للنظام <i class="fa-solid fa-right-to-bracket"></i></button>
-        <div id="loginError" class="text-danger mt-3" style="display:none; font-weight:bold;"><i class="fa-solid fa-triangle-exclamation"></i> الرمز غير صحيح، يرجى المحاولة.</div>
+        <div id="loginError" class="text-danger mt-3" style="display:none; font-weight:bold;"><i class="fa-solid fa-triangle-exclamation"></i> الرمز غير صحيح أو تم تغييره!</div>
     </div>
 </div>
 
@@ -235,23 +235,41 @@
     // الرابط السحابي الخاص بك
     const scriptURL = 'https://script.google.com/macros/s/AKfycbxYQlcH-OIt1N7Tpx44IrXb0wQllcNULIlLtNIQM8he8whfo1n1HilKHPQFLYfB5Zoe/exec';
     
-    const clinics = {
-        "101": "عيادة الدبلوماسي مول", "102": "منتزة سوق الثلاثاء", "103": "ميناء طرابلس",
-        "104": "مطار معيتيقة", "105": "مطار طرابلس الدولي", "106": "برج طرابلس", "107": "أبراج ذات العماد"
-    };
-
     let inventoryData = []; // لحفظ الأدوية المستجلبة
 
     function verifyCode() {
-        const code = document.getElementById('clinicCode').value;
-        if (clinics[code]) {
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('formContainer').style.display = 'block';
-            document.getElementById('displayClinicName').innerText = clinics[code];
-            document.getElementById('hiddenClinicName').value = clinics[code];
-        } else {
-            document.getElementById('loginError').style.display = 'block';
-        }
+        const code = document.getElementById('clinicCode').value.trim();
+        const btn = document.querySelector('.btn-official');
+        
+        if(!code) return;
+
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق من السحابة...';
+        btn.disabled = true;
+
+        fetch(scriptURL, { 
+            method: 'POST', 
+            body: JSON.stringify({ action: "getSettings" }) 
+        })
+        .then(res => res.json())
+        .then(data => {
+            // البحث عن العيادة المطابقة للرمز في قاعدة البيانات
+            const clinic = data.find(item => item.code == code && item.type === 'عيادة');
+            
+            if (clinic) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('formContainer').style.display = 'block';
+                document.getElementById('displayClinicName').innerText = clinic.name;
+                document.getElementById('hiddenClinicName').value = clinic.name;
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+                btn.innerHTML = 'تسجيل الدخول للنظام <i class="fa-solid fa-right-to-bracket"></i>';
+                btn.disabled = false;
+            }
+        }).catch(err => {
+            alert("حدث خطأ في الاتصال بقاعدة البيانات!");
+            btn.innerHTML = 'تسجيل الدخول للنظام <i class="fa-solid fa-right-to-bracket"></i>';
+            btn.disabled = false;
+        });
     }
 
     function toggleDiv(divId, element) {
